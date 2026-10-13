@@ -1,3 +1,7 @@
+-- liquibase formatted sql
+-- changeset searchstats:create_db_searchstats.sql
+-- preconditions onFail:MARK_RAN onError:WARN
+-- precondition-sql-check expectedResult:1 SELECT COUNT(*) FROM searchstats_queries WHERE 1 = 0
 --
 -- Structure for table searchstats_queries
 --

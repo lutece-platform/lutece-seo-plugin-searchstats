@@ -34,18 +34,18 @@
 package fr.paris.lutece.plugins.searchstats.business;
 
 import fr.paris.lutece.plugins.searchstats.business.QueryRecord;
-import fr.paris.lutece.plugins.searchstats.service.SearchStatsPlugin;
 import fr.paris.lutece.portal.service.plugin.Plugin;
-import fr.paris.lutece.portal.service.spring.SpringContextService;
 
 import java.util.List;
+
+import jakarta.enterprise.inject.spi.CDI;
 
 /**
  * This class provides instances management methods (create, find, ...) for QueryRecord objects
  */
 public final class QueryRecordHome
 {
-    private static IQueryRecordDAO _dao = (IQueryRecordDAO) SpringContextService.getPluginBean( SearchStatsPlugin.PLUGIN_NAME, "queryRecordDAO" );
+    private static IQueryRecordDAO _dao = CDI.current( ).select( IQueryRecordDAO.class ).get( );
 
     /**
      * Private constructor - this class need not be instantiated

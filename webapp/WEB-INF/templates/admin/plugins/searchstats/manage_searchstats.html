@@ -1,13 +1,14 @@
+<#assign baseUrl='jsp/admin/plugins/searchstats/ManageSearchStats.jsp?view=manageSearchStats' />
 <@pageContainer>
     <@pageColumn>
         <@pageHeader title='#i18n{searchstats.manage_searchstats.pageTitle}'>
-			<@tform action="jsp/admin/plugins/searchstats/ManageSearchStats.jsp" class='d-flex align-items-center'> 
+			<@tform action="jsp/admin/plugins/searchstats/ManageSearchStats.jsp" class='d-flex align-items-center'>
 				<@input type="hidden" name="action" value="refresh" />
-				<#assign isChecked><#if no_result_state !=''>true<#else>false</#if></#assign>
-				<@checkBox name='no_result' labelKey='#i18n{searchstats.manage_searchstats.textDisplayNoResultOnly}' orientation='switch' checked=isChecked?boolean />
+				<@checkBox name='no_result' value='1' wrapperClass='me-3' labelKey='#i18n{searchstats.manage_searchstats.textDisplayNoResultOnly}' orientation='switch' checked=no_result_state />
 				<@button color='primary' type='submit' title='#i18n{searchstats.manage_searchstats.buttonRefresh}' buttonIcon='refresh' />
 			</@tform>
         </@pageHeader>
+		<#if records_list?has_content>
 		<@table headBody=true>
 			<@tr>
 				<@th>#i18n{searchstats.manage_searchstats.columnYear}</@th>
@@ -18,16 +19,22 @@
 			<@tableHeadBodySeparator />
 			<#list records_list as record>
 			<@tr>
-				<@td><a href="jsp/admin/plugins/searchstats/ManageSearchStats.jsp?action=view&year=${record.year} ">${record.year}</a></@td>
-				<@td><a href="jsp/admin/plugins/searchstats/ManageSearchStats.jsp?action=view&year=${record.year}&amp;month=${record.month} ">${record.month}</a></@td>
-				<@td><a href="jsp/admin/plugins/searchstats/ManageSearchStats.jsp?action=view&year=${record.year}&amp;month=${record.month}&amp;day=${record.day} ">${record.day}</a></@td>
-				<@td><a href="jsp/admin/plugins/searchstats/ManageSearchStats.jsp?action=view&year=${record.year}&amp;month=${record.month}&amp;day=${record.day} ">${record.count}</a></@td>
+				<@td><a href="${baseUrl}&amp;year=${record.year?c}">${record.year?c}</a></@td>
+				<@td><a href="${baseUrl}&amp;year=${record.year?c}&amp;month=${record.month}">${record.month}</a></@td>
+				<@td><a href="${baseUrl}&amp;year=${record.year?c}&amp;month=${record.month}&amp;day=${record.day}">${record.day}</a></@td>
+				<@td><a href="${baseUrl}&amp;year=${record.year?c}&amp;month=${record.month}&amp;day=${record.day}">${record.count}</a></@td>
 			</@tr>
 			</#list>
 		</@table>
 		<@paginationAdmin paginator=paginator combo=1 />
+		<#else>
+		<@card>
+			<@empty title='#i18n{searchstats.manage_searchstats.noRecord}' subtitle='#i18n{searchstats.manage_searchstats.noRecordHelp}' iconName='search-off' />
+		</@card>
+		</#if>
 		<#if display_details>
-			<h3>#i18n{searchstats.manage_searchstats.titleDetails} : ${detail_date}</h3>
+			<#if detail_date?has_content><h3>#i18n{searchstats.manage_searchstats.titleDetails} : ${detail_date}</h3></#if>
+			<#if queries_list?has_content>
 			<@row>
 				<@columns sm=4>
 					<h3>#i18n{searchstats.manage_searchstats.titleMostFrequentlySearchedTerms}</h3>
@@ -43,13 +50,14 @@
 						<@td>${term.count}</@td>
 					</@tr>
 					</#list>
-					</@table> 
-				</@columns> 
-				<@columns sm=8>	
-					<h3>Liste des recherches</h3>
+					</@table>
+				</@columns>
+				<@columns sm=8>
+					<h3>#i18n{searchstats.manage_searchstats.titleQueries}</h3>
 					<@table headBody=true>
 					<@tr>
 						<@th>#i18n{searchstats.manage_searchstats.columnYear}</@th>
+						<@th>#i18n{searchstats.manage_searchstats.columnMonth}</@th>
 						<@th>#i18n{searchstats.manage_searchstats.columnDay}</@th>
 						<@th>#i18n{searchstats.manage_searchstats.columnHour}</@th>
 						<@th>#i18n{searchstats.manage_searchstats.columnTerms}</@th>
@@ -57,16 +65,21 @@
 					<@tableHeadBodySeparator />
 					<#list queries_list as query>
 						<@tr>
-							<@td>${query.year}</@td>
+							<@td>${query.year?c}</@td>
 							<@td>${query.month}</@td>
 							<@td>${query.day}</@td>
 							<@td>${query.hour}</@td>
-							<@td><#if query.query??>${query.query}</#if></@td>
+							<@td>${query.query!}</@td>
 						</@tr>
 					</#list>
-					</@table> 
-				</@columns> 	
-			</@row> 	
+					</@table>
+				</@columns>
+			</@row>
+			<#else>
+			<@card>
+				<@empty title='#i18n{searchstats.manage_searchstats.noQuery}' subtitle=' ' iconName='search-off' />
+			</@card>
+			</#if>
 		</#if>
 	</@pageColumn>
 </@pageContainer>

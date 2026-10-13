@@ -38,18 +38,29 @@ import fr.paris.lutece.plugins.searchstats.business.QueryRecordHome;
 import fr.paris.lutece.portal.service.plugin.Plugin;
 import fr.paris.lutece.portal.service.plugin.PluginService;
 import fr.paris.lutece.portal.service.search.QueryEvent;
-import fr.paris.lutece.portal.service.search.QueryEventListener;
+import fr.paris.lutece.portal.service.util.AppException;
+import fr.paris.lutece.portal.service.util.AppLogService;
 
 import java.util.Calendar;
 import java.util.GregorianCalendar;
+
+import jakarta.enterprise.context.ApplicationScoped;
+import jakarta.enterprise.event.Observes;
 
 
 /**
  * QueryListener
  */
-public class QueryListener implements QueryEventListener
+@ApplicationScoped
+public class QueryListener
 {
-    public void processQueryEvent( QueryEvent event )
+    /**
+     * Records the search query of the event.
+     *
+     * @param event
+     *            the query event fired by the search
+     */
+    public void processQueryEvent( @Observes QueryEvent event )
     {
         QueryRecord record = new QueryRecord(  );
         Calendar calendar = new GregorianCalendar(  );
@@ -60,7 +71,14 @@ public class QueryListener implements QueryEventListener
         record.setQuery( event.getQuery(  ) );
         record.setResultsCount( event.getResultsCount(  ) );
 
-        Plugin plugin = PluginService.getPlugin( SearchStatsPlugin.PLUGIN_NAME );
-        QueryRecordHome.create( record, plugin );
+        Plugin plugin = PluginService.getPlugin( SearchStatsService.PLUGIN_NAME );
+        try
+        {
+            QueryRecordHome.create( record, plugin );
+        }
+        catch( AppException e )
+        {
+            AppLogService.error( "Searchstats - unable to record the query : {}", e.getMessage( ), e );
+        }
     }
 }

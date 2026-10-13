@@ -37,12 +37,15 @@ import fr.paris.lutece.plugins.searchstats.business.QueryRecord;
 import fr.paris.lutece.portal.service.plugin.Plugin;
 import fr.paris.lutece.util.sql.DAOUtil;
 
+import jakarta.enterprise.context.ApplicationScoped;
+
 import java.util.ArrayList;
 import java.util.List;
 
 /**
  * This class provides Data Access methods for QueryRecord objects
  */
+@ApplicationScoped
 public final class QueryRecordDAO implements IQueryRecordDAO
 {
     // Constants
@@ -56,7 +59,7 @@ public final class QueryRecordDAO implements IQueryRecordDAO
     private static final String SQL_FILTER_DAY = " dd = ? ";
     private static final String SQL_FILTER_HOUR = " hh = ? ";
     private static final String SQL_FILTER_NO_RESULTS = " results_count = 0 ";
-    private static final String SQL_FILTER_FROM_DATE = " STR_TO_DATE(CONCAT(yyyy,'-',mm,'-',dd), '%Y-%m-%d') > STR_TO_DATE(CONCAT(?,'-',?,'-',?), '%Y-%m-%d') " ;
+    private static final String SQL_FILTER_FROM_DATE = " ( yyyy * 10000 + mm * 100 + dd ) > ( ? * 10000 + ? * 100 + ? ) ";
     private static final String SQL_ORDER_BY = " ORDER BY (yyyy * 365 + 31 * mm + dd) * 24 + hh  DESC ";
     private static final String SQL_QUERY_SELECTALL = " SELECT yyyy, mm, dd, hh, query, results_count FROM searchstats_queries ";
 
@@ -71,18 +74,17 @@ public final class QueryRecordDAO implements IQueryRecordDAO
 
     public void insert( QueryRecord queryRecord, Plugin plugin )
     {
+        try ( DAOUtil daoUtil = new DAOUtil( SQL_QUERY_INSERT, plugin ) )
+        {
+            daoUtil.setInt( 1, queryRecord.getYear( ) );
+            daoUtil.setInt( 2, queryRecord.getMonth( ) );
+            daoUtil.setInt( 3, queryRecord.getDay( ) );
+            daoUtil.setInt( 4, queryRecord.getHour( ) );
+            daoUtil.setString( 5, queryRecord.getQuery( ) );
+            daoUtil.setInt( 6, queryRecord.getResultsCount( ) );
 
-        DAOUtil daoUtil = new DAOUtil( SQL_QUERY_INSERT, plugin );
-
-        daoUtil.setInt( 1, queryRecord.getYear( ) );
-        daoUtil.setInt( 2, queryRecord.getMonth( ) );
-        daoUtil.setInt( 3, queryRecord.getDay( ) );
-        daoUtil.setInt( 4, queryRecord.getHour( ) );
-        daoUtil.setString( 5, queryRecord.getQuery( ) );
-        daoUtil.setInt( 6, queryRecord.getResultsCount( ) );
-
-        daoUtil.executeUpdate( );
-        daoUtil.free( );
+            daoUtil.executeUpdate( );
+        }
     }
 
     /**
@@ -97,20 +99,20 @@ public final class QueryRecordDAO implements IQueryRecordDAO
         List<RecordCount> listQueryRecords = new ArrayList<RecordCount>( );
 
         String strSQL = SQL_QUERY_SELECT_COUNT + ( ( bNoResult ) ? SQL_QUERY_SELECT_COUNT_NO_RESULT : "" ) + SQL_QUERY_SELECT_COUNT_GROUP;
-        DAOUtil daoUtil = new DAOUtil( strSQL, plugin );
-        daoUtil.executeQuery( );
-
-        while ( daoUtil.next( ) )
+        try ( DAOUtil daoUtil = new DAOUtil( strSQL, plugin ) )
         {
-            RecordCount queryRecord = new RecordCount( );
-            queryRecord.setYear( daoUtil.getInt( 1 ) );
-            queryRecord.setMonth( daoUtil.getInt( 2 ) );
-            queryRecord.setDay( daoUtil.getInt( 3 ) );
-            queryRecord.setCount( daoUtil.getInt( 4 ) );
-            listQueryRecords.add( queryRecord );
-        }
+            daoUtil.executeQuery( );
 
-        daoUtil.free( );
+            while ( daoUtil.next( ) )
+            {
+                RecordCount queryRecord = new RecordCount( );
+                queryRecord.setYear( daoUtil.getInt( 1 ) );
+                queryRecord.setMonth( daoUtil.getInt( 2 ) );
+                queryRecord.setDay( daoUtil.getInt( 3 ) );
+                queryRecord.setCount( daoUtil.getInt( 4 ) );
+                listQueryRecords.add( queryRecord );
+            }
+        }
 
         return listQueryRecords;
     }
@@ -145,31 +147,30 @@ public final class QueryRecordDAO implements IQueryRecordDAO
         String strSQL = buildQuery( SQL_QUERY_SELECT, clauses );
         strSQL += SQL_ORDER_BY;
 
-        DAOUtil daoUtil = new DAOUtil( strSQL, plugin );
-
-        // Set parameters
-        int i = 1;
-
-        for ( String strValue : parameters )
+        try ( DAOUtil daoUtil = new DAOUtil( strSQL, plugin ) )
         {
-            daoUtil.setInt( i++, Integer.parseInt( strValue ) );
+            // Set parameters
+            int i = 1;
+
+            for ( String strValue : parameters )
+            {
+                daoUtil.setInt( i++, Integer.parseInt( strValue ) );
+            }
+
+            daoUtil.executeQuery( );
+
+            while ( daoUtil.next( ) )
+            {
+                QueryRecord queryRecord = new QueryRecord( );
+                queryRecord.setYear( daoUtil.getInt( 1 ) );
+                queryRecord.setMonth( daoUtil.getInt( 2 ) );
+                queryRecord.setDay( daoUtil.getInt( 3 ) );
+                queryRecord.setHour( daoUtil.getInt( 4 ) );
+                queryRecord.setQuery( daoUtil.getString( 5 ) );
+
+                listQueryRecords.add( queryRecord );
+            }
         }
-
-        daoUtil.executeQuery( );
-
-        while ( daoUtil.next( ) )
-        {
-            QueryRecord queryRecord = new QueryRecord( );
-            queryRecord.setYear( daoUtil.getInt( 1 ) );
-            queryRecord.setMonth( daoUtil.getInt( 2 ) );
-            queryRecord.setDay( daoUtil.getInt( 3 ) );
-            queryRecord.setHour( daoUtil.getInt( 4 ) );
-            queryRecord.setQuery( daoUtil.getString( 5 ) );
-
-            listQueryRecords.add( queryRecord );
-        }
-
-        daoUtil.free( );
 
         return listQueryRecords;
     }
@@ -201,31 +202,30 @@ public final class QueryRecordDAO implements IQueryRecordDAO
         String strSQL = buildQuery( SQL_QUERY_SELECT, clauses );
         strSQL += SQL_ORDER_BY;
 
-        DAOUtil daoUtil = new DAOUtil( strSQL, plugin );
-
-        // Set parameters
-        int i = 1;
-
-        for ( String strValue : parameters )
+        try ( DAOUtil daoUtil = new DAOUtil( strSQL, plugin ) )
         {
-            daoUtil.setInt( i++, Integer.parseInt( strValue ) );
+            // Set parameters
+            int i = 1;
+
+            for ( String strValue : parameters )
+            {
+                daoUtil.setInt( i++, Integer.parseInt( strValue ) );
+            }
+
+            daoUtil.executeQuery( );
+
+            while ( daoUtil.next( ) )
+            {
+                QueryRecord queryRecord = new QueryRecord( );
+                queryRecord.setYear( daoUtil.getInt( 1 ) );
+                queryRecord.setMonth( daoUtil.getInt( 2 ) );
+                queryRecord.setDay( daoUtil.getInt( 3 ) );
+                queryRecord.setHour( daoUtil.getInt( 4 ) );
+                queryRecord.setQuery( daoUtil.getString( 5 ) );
+
+                listQueryRecords.add( queryRecord );
+            }
         }
-
-        daoUtil.executeQuery( );
-
-        while ( daoUtil.next( ) )
-        {
-            QueryRecord queryRecord = new QueryRecord( );
-            queryRecord.setYear( daoUtil.getInt( 1 ) );
-            queryRecord.setMonth( daoUtil.getInt( 2 ) );
-            queryRecord.setDay( daoUtil.getInt( 3 ) );
-            queryRecord.setHour( daoUtil.getInt( 4 ) );
-            queryRecord.setQuery( daoUtil.getString( 5 ) );
-
-            listQueryRecords.add( queryRecord );
-        }
-
-        daoUtil.free( );
 
         return listQueryRecords;
     }
@@ -261,24 +261,25 @@ public final class QueryRecordDAO implements IQueryRecordDAO
     public List<QueryRecord> selectQueryRecordList( Plugin plugin )
     {
         List<QueryRecord> queryRecordList = new ArrayList<QueryRecord>( );
-        DAOUtil daoUtil = new DAOUtil( SQL_QUERY_SELECTALL, plugin );
-        daoUtil.executeQuery( );
-
-        while ( daoUtil.next( ) )
+        try ( DAOUtil daoUtil = new DAOUtil( SQL_QUERY_SELECTALL, plugin ) )
         {
-            QueryRecord queryRecord = new QueryRecord( );
+            daoUtil.executeQuery( );
 
-            queryRecord.setYear( daoUtil.getInt( 1 ) );
-            queryRecord.setMonth( daoUtil.getInt( 2 ) );
-            queryRecord.setDay( daoUtil.getInt( 3 ) );
-            queryRecord.setHour( daoUtil.getInt( 4 ) );
-            queryRecord.setQuery( daoUtil.getString( 5 ) );
-            queryRecord.setResultsCount( daoUtil.getInt( 6 ) );
+            while ( daoUtil.next( ) )
+            {
+                QueryRecord queryRecord = new QueryRecord( );
 
-            queryRecordList.add( queryRecord );
+                queryRecord.setYear( daoUtil.getInt( 1 ) );
+                queryRecord.setMonth( daoUtil.getInt( 2 ) );
+                queryRecord.setDay( daoUtil.getInt( 3 ) );
+                queryRecord.setHour( daoUtil.getInt( 4 ) );
+                queryRecord.setQuery( daoUtil.getString( 5 ) );
+                queryRecord.setResultsCount( daoUtil.getInt( 6 ) );
+
+                queryRecordList.add( queryRecord );
+            }
+
         }
-
-        daoUtil.free( );
         return queryRecordList;
     }
 }

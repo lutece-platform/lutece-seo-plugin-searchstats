@@ -39,10 +39,20 @@ import java.util.Comparator;
 /**
  * TermRecordComparator
  */
-public class TermRecordComparator implements Comparator
+public class TermRecordComparator implements Comparator<TermRecord>
 {
-    public int compare( Object o1, Object o2 )
+    /**
+     * Orders the terms by decreasing count.
+     *
+     * @param o1
+     *            the first term
+     * @param o2
+     *            the second term
+     * @return a negative value when o1 is searched more than o2
+     */
+    @Override
+    public int compare( TermRecord o1, TermRecord o2 )
     {
-        return ( (TermRecord) o2 ).getCount(  ) - ( (TermRecord) o1 ).getCount(  );
+        return o2.getCount( ) - o1.getCount( );
     }
 }

@@ -1,9 +1,9 @@
 <%@ page errorPage="../../ErrorPage.jsp" %>
+
+${ pageContext.setAttribute( 'strContent', searchStatsJspBean.processController( pageContext.request , pageContext.response ) ) }
+
 <jsp:include page="../../AdminHeader.jsp" />
 
-<jsp:useBean id="searchstats" scope="session" class="fr.paris.lutece.plugins.searchstats.web.SearchStatsJspBean" />
+${ pageContext.getAttribute( 'strContent' ) }
 
-<% searchstats.init( request , searchstats.RIGHT_MANAGE_SEARCH_STATS ); %>
-<%= searchstats.manageSearchStats( request )%>
-
-<%@include file="../../AdminFooter.jsp" %>
+<%@ include file="../../AdminFooter.jsp" %>

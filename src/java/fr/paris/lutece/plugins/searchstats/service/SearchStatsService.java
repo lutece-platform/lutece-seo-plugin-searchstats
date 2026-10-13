@@ -43,11 +43,11 @@ import fr.paris.lutece.portal.service.i18n.I18nService;
 import fr.paris.lutece.portal.service.mail.MailService;
 import fr.paris.lutece.portal.service.mailinglist.AdminMailingListService;
 import fr.paris.lutece.portal.service.plugin.Plugin;
+import fr.paris.lutece.portal.service.plugin.PluginService;
 import fr.paris.lutece.portal.service.template.AppTemplateService;
 import fr.paris.lutece.portal.service.util.AppPathService;
 import fr.paris.lutece.portal.service.util.AppPropertiesService;
 
-import java.io.IOException;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.temporal.ChronoUnit;
@@ -61,10 +61,10 @@ import java.util.Map;
 
 public final class SearchStatsService
 {
+    public static final String PLUGIN_NAME = "searchstats";
 
-    private static String PROPERTY_MAIL_SENDER_NAME = AppPropertiesService.getProperty( "daemon.mail.sender_name" );
-    private static String CONSTANT_MAIL_SENDER = MailService.getNoReplyEmail( );
-    private static String MESSAGE_MAIL_SUBJECT = I18nService.getLocalizedString("searchstats.mail_content.subject", Locale.getDefault()) + AppPathService.getProdUrl("");
+    private static final String PROPERTY_MAIL_SENDER_NAME = "daemon.mail.sender_name";
+    private static final String MESSAGE_MAIL_SUBJECT = "searchstats.mail_content.subject";
     private static final String TEMPLATE_STATS_TEMPLATE = "/admin/plugins/searchstats/mail/mail_content.html";
     private static final String MARK_RECORDS_LIST = "records_list";
     private static final String MARK_SEARCH_STATS_SERVICE = "search_stats_service";
@@ -75,13 +75,12 @@ public final class SearchStatsService
 
     /**
      * Send email to list recipient
-     * @throws IOException 
      */
     public static int sendEmail( )
     {
     	int nNbEmail=0;
         Map<String, Object> model = new HashMap<>( );
-        Plugin plugin = null;        
+        Plugin plugin = PluginService.getPlugin( PLUGIN_NAME );
         RecordFilter recordFilter = new RecordFilter();
         recordFilter.setDay( LocalDate.now().getDayOfMonth( ) );
         recordFilter.setMonth( LocalDate.now().getMonthValue( ) );
@@ -93,10 +92,14 @@ public final class SearchStatsService
 
         String strContent = AppTemplateService.getTemplate( TEMPLATE_STATS_TEMPLATE, Locale.getDefault( ), model ).getHtml( );
 
+        String strSenderName = AppPropertiesService.getProperty( PROPERTY_MAIL_SENDER_NAME );
+        String strSenderEmail = MailService.getNoReplyEmail( );
+        String strSubject = I18nService.getLocalizedString( MESSAGE_MAIL_SUBJECT, Locale.getDefault( ) ) + AppPathService.getProdUrl( "" );
+
         Collection<Recipient> colMailingList = AdminMailingListService.getRecipients( null, AppPropertiesService.getProperty( "daemon.mail.recipient" ) );
         for ( Recipient recipient : colMailingList )
         {
-            MailService.sendMailHtml( recipient.getEmail( ), PROPERTY_MAIL_SENDER_NAME, CONSTANT_MAIL_SENDER, MESSAGE_MAIL_SUBJECT, strContent );
+            MailService.sendMailHtml( recipient.getEmail( ), strSenderName, strSenderEmail, strSubject, strContent );
             nNbEmail++;
         }
         return nNbEmail;

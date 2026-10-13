@@ -1,3 +1,7 @@
+-- liquibase formatted sql
+-- changeset searchstats:update_db_searchstats-4.3.1-4.3.2.sql
+-- preconditions onFail:MARK_RAN onError:WARN
+-- precondition-sql-check expectedResult:0 SELECT COUNT(*) FROM core_admin_role WHERE role_key = 'role_daemon_mail_recipient'
 INSERT INTO core_admin_role (role_key,role_description)
 VALUES ('role_daemon_mail_recipient','Role pour la liste de diffusion du daemon des statistiques de recherches.');
 

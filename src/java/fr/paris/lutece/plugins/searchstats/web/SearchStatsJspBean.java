@@ -40,175 +40,201 @@ import fr.paris.lutece.plugins.searchstats.business.RecordFilter;
 import fr.paris.lutece.plugins.searchstats.service.TermRecord;
 import fr.paris.lutece.plugins.searchstats.service.TermRecordService;
 import fr.paris.lutece.portal.service.i18n.I18nService;
-import fr.paris.lutece.portal.service.template.AppTemplateService;
-import fr.paris.lutece.portal.web.admin.PluginAdminPageJspBean;
-import fr.paris.lutece.portal.web.util.LocalizedPaginator;
-import fr.paris.lutece.util.html.HtmlTemplate;
-import fr.paris.lutece.util.html.Paginator;
+import fr.paris.lutece.portal.util.mvc.admin.MVCAdminJspBean;
+import fr.paris.lutece.portal.util.mvc.admin.annotations.Controller;
+import fr.paris.lutece.portal.util.mvc.commons.annotations.Action;
+import fr.paris.lutece.portal.util.mvc.commons.annotations.View;
+import fr.paris.lutece.portal.web.cdi.mvc.Models;
+import fr.paris.lutece.portal.web.util.IPager;
+import fr.paris.lutece.portal.web.util.Pager;
 
 import java.text.SimpleDateFormat;
-
 import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.GregorianCalendar;
-import java.util.HashMap;
 import java.util.List;
 
-import javax.servlet.http.HttpServletRequest;
+import org.apache.commons.lang3.math.NumberUtils;
 
+import jakarta.enterprise.context.SessionScoped;
+import jakarta.inject.Inject;
+import jakarta.inject.Named;
+import jakarta.servlet.http.HttpServletRequest;
 
-/*
- * This class provides the user interface to manage adminquery features
+/**
+ * This class provides the user interface to browse the search statistics
  */
-public class SearchStatsJspBean extends PluginAdminPageJspBean
+@SessionScoped
+@Named
+@Controller( controllerJsp = SearchStatsJspBean.CONTROLLER_JSP, controllerPath = SearchStatsJspBean.CONTROLLER_PATH, right = SearchStatsJspBean.RIGHT_MANAGE_SEARCH_STATS, securityTokenEnabled = true )
+public class SearchStatsJspBean extends MVCAdminJspBean
 {
-    /////////////////////////////////////////////////////////////////////////////////////////
-    // Constants
-
-    // Right
+    /** The right of the feature */
     public static final String RIGHT_MANAGE_SEARCH_STATS = "SEARCH_STATS_MANAGEMENT";
+    /** The controller JSP */
+    public static final String CONTROLLER_JSP = "ManageSearchStats.jsp";
+    /** The controller path */
+    public static final String CONTROLLER_PATH = "jsp/admin/plugins/searchstats/";
 
-    //Templates
+    private static final long serialVersionUID = -3071874519256120713L;
+
+    // Templates
     private static final String TEMPLATE_MANAGE_SEARCH_STATS = "admin/plugins/searchstats/manage_searchstats.html";
 
-    // Boomarks
+    // Properties
+    private static final String PROPERTY_PAGE_TITLE_MANAGE_SEARCH_STATS = "searchstats.manage_searchstats.pageTitle";
+    private static final String PROPERTY_ITEMS_PER_PAGE = "searchstats.listDates.itemsPerPage";
+    private static final String PROPERTY_FORMAT_YEAR = "searchstats.format.year";
+    private static final String PROPERTY_FORMAT_MONTH = "searchstats.format.month";
+    private static final String PROPERTY_FORMAT_DAY = "searchstats.format.day";
+
+    // Views
+    private static final String VIEW_MANAGE_SEARCH_STATS = "manageSearchStats";
+
+    // Actions
+    private static final String ACTION_REFRESH = "refresh";
+
+    // Marks
     private static final String MARK_DATES = "records_list";
     private static final String MARK_QUERIES = "queries_list";
     private static final String MARK_TERMS = "terms_list";
     private static final String MARK_NO_RESULT_STATE = "no_result_state";
     private static final String MARK_DISPLAY_DETAILS = "display_details";
     private static final String MARK_DETAIL_DATE = "detail_date";
-    private static final String MARK_PAGINATOR = "paginator";
-    private static final String MARK_NB_ITEMS_PER_PAGE = "nb_items_per_page";
 
     // Parameters
     private static final String PARAMETER_YEAR = "year";
     private static final String PARAMETER_MONTH = "month";
     private static final String PARAMETER_DAY = "day";
     private static final String PARAMETER_NO_RESULT = "no_result";
-    private static final String PARAMETER_ACTION = "action";
-    private static final String ACTION_VIEW = "view";
-    private static final String ACTION_REFRESH = "refresh";
-    private static final String PARAMETER_PAGE_INDEX_DATES = "page_index_dates";
-    private static final int DEFAULT_ITEMS_PER_PAGE = 20;
-    private static final String PROPERTY_FORMAT_YEAR = "searchstats.format.year";
-    private static final String PROPERTY_FORMAT_MONTH = "searchstats.format.month";
-    private static final String PROPERTY_FORMAT_DAY = "searchstats.format.day";
-    private int _nItemPerPageDates = 0;
-    private String _strPageIndexDates;
+
+    private static final int MAX_MONTH = 12;
+    private static final int MAX_DAY = 31;
+
+    @Inject
+    @Pager( name = "searchstats.dates", listBookmark = MARK_DATES, defaultItemsPerPage = PROPERTY_ITEMS_PER_PAGE, baseUrl = CONTROLLER_PATH + CONTROLLER_JSP )
+    private IPager<RecordCount, Void> _pagerDates;
+
     private boolean _bShowOnlyNoResultQueries;
 
-    public String manageSearchStats( HttpServletRequest request )
+    /**
+     * Displays the dates having search queries and, when a date is given, the queries and the most searched terms of that date.
+     *
+     * @param request
+     *            the HTTP request
+     * @param model
+     *            the model
+     * @return the page
+     */
+    @View( value = VIEW_MANAGE_SEARCH_STATS, defaultView = true, securityTokenAction = ACTION_REFRESH )
+    public String getManageSearchStats( HttpServletRequest request, Models model )
     {
-        String strYear = request.getParameter( PARAMETER_YEAR );
-        String strMonth = request.getParameter( PARAMETER_MONTH );
-        String strDay = request.getParameter( PARAMETER_DAY );
-        String strAction = request.getParameter( PARAMETER_ACTION );
-        String strNoResultQueries = request.getParameter( PARAMETER_NO_RESULT );
+        int nYear = getDateParameter( request, PARAMETER_YEAR, Integer.MAX_VALUE );
+        int nMonth = ( nYear != RecordFilter.NOT_DEFINED ) ? getDateParameter( request, PARAMETER_MONTH, MAX_MONTH ) : RecordFilter.NOT_DEFINED;
+        int nDay = ( nMonth != RecordFilter.NOT_DEFINED ) ? getDateParameter( request, PARAMETER_DAY, MAX_DAY ) : RecordFilter.NOT_DEFINED;
+        boolean bDisplayDetails = nYear != RecordFilter.NOT_DEFINED;
 
-        RecordFilter filter = new RecordFilter(  );
-
-        boolean bDisplayDetails = ( strAction != null ) && ( strAction.equals( ACTION_VIEW ) );
-
-        if ( strYear != null )
-        {
-            filter.setYear( Integer.parseInt( strYear ) );
-        }
-
-        if ( strMonth != null )
-        {
-            filter.setMonth( Integer.parseInt( strMonth ) );
-        }
-
-        if ( strDay != null )
-        {
-            filter.setDay( Integer.parseInt( strDay ) );
-        }
-
-        if ( ( strAction != null ) && strAction.equals( ACTION_REFRESH ) )
-        {
-            _bShowOnlyNoResultQueries = ( strNoResultQueries != null ) ? true : false;
-        }
-
+        RecordFilter filter = new RecordFilter( );
         filter.setNoResults( _bShowOnlyNoResultQueries );
+        filter.setYear( nYear );
+        filter.setMonth( nMonth );
+        filter.setDay( nDay );
 
-        List<RecordCount> listDates = QueryRecordHome.findRecordsDatesList( getPlugin(  ), _bShowOnlyNoResultQueries );
-        List<QueryRecord> listQueries;
-
-        if ( ( strAction != null ) && strAction.equals( ACTION_VIEW ) )
-        {
-            listQueries = QueryRecordHome.findQueryRecordsListByCriteria( getPlugin(  ), filter );
-        }
-        else
-        {
-            listQueries = new ArrayList<QueryRecord>(  );
-        }
-
+        List<QueryRecord> listQueries = bDisplayDetails ? QueryRecordHome.findQueryRecordsListByCriteria( getPlugin( ), filter ) : new ArrayList<>( );
         List<TermRecord> listTopTerms = TermRecordService.getTopTerms( listQueries );
-        String strDetailLabel = getDetailDateLabel( strYear, strMonth, strDay );
 
-        _nItemPerPageDates = Paginator.getItemsPerPage( request, Paginator.PARAMETER_ITEMS_PER_PAGE,
-                _nItemPerPageDates, DEFAULT_ITEMS_PER_PAGE );
-        _strPageIndexDates = Paginator.getPageIndex( request, PARAMETER_PAGE_INDEX_DATES, _strPageIndexDates );
+        _pagerDates.withListItem( QueryRecordHome.findRecordsDatesList( getPlugin( ), _bShowOnlyNoResultQueries ) ).populateModels( request, model, getLocale( ) );
 
-        LocalizedPaginator paginatorDates = new LocalizedPaginator( listDates, _nItemPerPageDates, getHomeUrl( request ),
-                PARAMETER_PAGE_INDEX_DATES, _strPageIndexDates , getLocale() );
-
-        HashMap model = new HashMap(  );
-        model.put( MARK_DATES, paginatorDates.getPageItems(  ) );
-        model.put( MARK_PAGINATOR, paginatorDates );
-        model.put( MARK_NB_ITEMS_PER_PAGE, "" + _nItemPerPageDates );
         model.put( MARK_DISPLAY_DETAILS, bDisplayDetails );
-        model.put( MARK_DETAIL_DATE, strDetailLabel );
+        model.put( MARK_DETAIL_DATE, getDetailDateLabel( nYear, nMonth, nDay ) );
         model.put( MARK_QUERIES, listQueries );
         model.put( MARK_TERMS, listTopTerms );
-        model.put( MARK_NO_RESULT_STATE, _bShowOnlyNoResultQueries ? "checked=\"on\"" : "" );
+        model.put( MARK_NO_RESULT_STATE, _bShowOnlyNoResultQueries );
 
-        HtmlTemplate template = AppTemplateService.getTemplate( TEMPLATE_MANAGE_SEARCH_STATS, getLocale(  ), model );
-
-        return getAdminPage( template.getHtml(  ) );
+        return getPage( PROPERTY_PAGE_TITLE_MANAGE_SEARCH_STATS, TEMPLATE_MANAGE_SEARCH_STATS, model );
     }
 
-    private String getDetailDateLabel( String strYear, String strMonth, String strDay )
+    /**
+     * Sets whether only the queries without result are displayed.
+     *
+     * @param request
+     *            the HTTP request
+     * @return the URL of the stats view
+     */
+    @Action( ACTION_REFRESH )
+    public String doRefresh( HttpServletRequest request )
+    {
+        _bShowOnlyNoResultQueries = request.getParameter( PARAMETER_NO_RESULT ) != null;
+
+        return redirectView( request, VIEW_MANAGE_SEARCH_STATS );
+    }
+
+    /**
+     * Reads a positive date part from the request.
+     *
+     * @param request
+     *            the HTTP request
+     * @param strParameter
+     *            the parameter name
+     * @param nMax
+     *            the highest accepted value
+     * @return the value, or RecordFilter.NOT_DEFINED when it is missing or not between 1 and nMax
+     */
+    private static int getDateParameter( HttpServletRequest request, String strParameter, int nMax )
+    {
+        int nValue = NumberUtils.toInt( request.getParameter( strParameter ), RecordFilter.NOT_DEFINED );
+
+        return ( nValue > 0 && nValue <= nMax ) ? nValue : RecordFilter.NOT_DEFINED;
+    }
+
+    /**
+     * Builds the label of the detailed date.
+     *
+     * @param nYear
+     *            the year
+     * @param nMonth
+     *            the month
+     * @param nDay
+     *            the day
+     * @return the formatted date, empty when no year is given or the date does not exist
+     */
+    private String getDetailDateLabel( int nYear, int nMonth, int nDay )
     {
         String strDateLabel = "";
 
-        Calendar c = new GregorianCalendar(  );
-
-        if ( strYear != null )
+        if ( nYear != RecordFilter.NOT_DEFINED )
         {
             String strPattern;
-            c.set( Calendar.YEAR, Integer.parseInt( strYear ) );
+            Calendar c = new GregorianCalendar( nYear, ( nMonth != RecordFilter.NOT_DEFINED ) ? nMonth - 1 : Calendar.JANUARY,
+                    ( nDay != RecordFilter.NOT_DEFINED ) ? nDay : 1 );
+            c.setLenient( false );
 
-            if ( strMonth != null )
+            if ( nMonth != RecordFilter.NOT_DEFINED )
             {
-                c.set( Calendar.MONTH, Integer.parseInt( strMonth ) - 1 );
-
-                if ( strDay != null )
+                if ( nDay != RecordFilter.NOT_DEFINED )
                 {
-                    c.set( Calendar.DAY_OF_MONTH, Integer.parseInt( strDay ) );
-                    strPattern = I18nService.getLocalizedString( PROPERTY_FORMAT_DAY, getLocale(  ) );
+                    strPattern = I18nService.getLocalizedString( PROPERTY_FORMAT_DAY, getLocale( ) );
                 }
                 else
                 {
-                    strPattern = I18nService.getLocalizedString( PROPERTY_FORMAT_MONTH, getLocale(  ) );
+                    strPattern = I18nService.getLocalizedString( PROPERTY_FORMAT_MONTH, getLocale( ) );
                 }
             }
             else
             {
-                strPattern = I18nService.getLocalizedString( PROPERTY_FORMAT_YEAR, getLocale(  ) );
+                strPattern = I18nService.getLocalizedString( PROPERTY_FORMAT_YEAR, getLocale( ) );
             }
 
-            strDateLabel = getFormattedDate( c, strPattern );
+            try
+            {
+                strDateLabel = new SimpleDateFormat( strPattern, getLocale( ) ).format( c.getTime( ) );
+            }
+            catch( IllegalArgumentException e )
+            {
+                strDateLabel = "";
+            }
         }
 
         return strDateLabel;
-    }
-
-    private String getFormattedDate( Calendar c, String strFormatPattern )
-    {
-        SimpleDateFormat formatter = new SimpleDateFormat( strFormatPattern, getLocale(  ) );
-
-        return formatter.format( c.getTime(  ) );
     }
 }

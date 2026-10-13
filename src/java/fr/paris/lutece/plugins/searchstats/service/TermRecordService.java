@@ -80,11 +80,11 @@ public class TermRecordService
             }
             catch ( Exception e )
             {
-                AppLogService.error( "Searchstats - getTopTerms error on Terms : " + strTerms + " : " + e.getMessage(), e.getCause() );
+                AppLogService.error( "Searchstats - getTopTerms error on Terms : {} : {}", strTerms, e.getMessage( ), e );
             }
         }
 
-        List listTerms = new ArrayList<TermRecord>( mapTerms.values() );
+        List<TermRecord> listTerms = new ArrayList<>( mapTerms.values( ) );
         Collections.sort( listTerms, new TermRecordComparator() );
 
         return listTerms;
